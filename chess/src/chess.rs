@@ -47,7 +47,7 @@ pub fn decode_notation(s: &String) -> Option<usize> {
             None => 8, 
         };
         if i < 8 && j < 8{
-            Some(j + i * 8)
+            Some(j + (8 - i) * 8)
         } else {
             None
         }
