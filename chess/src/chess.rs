@@ -374,4 +374,10 @@ impl Board {
         self.white_turn = !self.white_turn;
         self.square = 64;
     }
+
+    pub fn reset_select(&mut self) {
+        self.square = 64;
+        self.movement.clear();
+        self.capture.clear();
+    }
 }
