@@ -37,11 +37,11 @@ fn main() {
                 }
             } 
             err_msg = match board.check_start(&start_indx) {
-                None => match board.eval_reach() {
-                    None  => break,
-                    Some(msg) => msg, 
+                Ok(_) => match board.eval_reach() {
+                    Ok(_) => break,
+                    Err(msg) => msg, 
                 },
-                Some(msg) => msg,
+                Err(msg) => msg,
             }
         }
         err_msg = "";
@@ -69,13 +69,13 @@ fn main() {
                 }
             }
             err_msg = match board.check_end(&end_indx) {
-                None => {
+                Ok(_) => {
                     println!("\x1bc");
                     board.move_piece(&end_indx);
                     board.draw();
                     break;
                 },
-                Some(msg) => msg,
+                Err(msg) => msg,
             }
         }
         err_msg = "";

@@ -22,7 +22,7 @@ static DIRECTIONS: [[i8; 2]; 5] = [
     [ 1, 0], //Horizontal
     [ 1, 1], //Diagonal
     [ 2, 1], //L shape    
-    [-1,0], //Vertical Up
+    [-1, 0], //Vertical Up
     [ 1, 0], //Vertical Down
 ];
 
@@ -208,39 +208,47 @@ impl Board {
         print!("\n");
     }
 
+    pub fn try_func(num: i8) -> Result<(),&'static str> {
+        if num > 8 {
+            Ok(())
+        } else {
+            Err("hola mundo")
+        }
+    }
+
     pub fn check_start(
         &mut self, indx: &i8
-    ) -> Option<&'static str> {
+    ) -> Result<(), &'static str> {
         let err_msg: &'static str = "you don't have a piece in that square";
         if self.white_turn {
             if self.white.contains_key(indx) {
                 self.square = *indx;
-                None
+                Ok(())
             } else {
-                Some(err_msg)
+                Err(err_msg)
             }            
         } else {
             if self.black.contains_key(indx) {
                 self.square = *indx;
-                None
+                Ok(())
             } else {
-                Some(err_msg)
+                Err(err_msg)
             }
         }
     }
 
     pub fn check_end(
         &mut self, indx: &i8
-    ) -> Option<&'static str> {
+    ) -> Result<(), &'static str> {
         if self.movement.contains(indx) ||
            self.capture.contains(indx) {
-            None
+            Ok(())
         } else {
-            Some("Invalid movement for your piece")
+            Err("Invalid movement for your piece")
         }
     }
 
-    pub fn eval_reach(&mut self) -> Option<&'static str> {
+    pub fn eval_reach(&mut self) -> Result<(), &'static str> {
         let (mut i, mut j) : (i8, i8); 
         let mut indx: i8;
         let (
@@ -315,10 +323,10 @@ impl Board {
             }
         }
         if self.movement.len() != 0 || self.capture.len() != 0{
-            None
+            Ok(())
         }else {
             self.square = 64;
-            Some("The piece cannot move")
+            Err("The piece cannot move")
         }
     }
 
