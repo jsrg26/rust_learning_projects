@@ -17,8 +17,9 @@ fn main() {
     let mut err_msg: &str = "";
 
     'main: loop {
+        board.calc_valid_moves();
         loop {   
-            print!("\x1bc"); 
+            print!("\x1bc");
             board.draw();
             println!("\x1b[38;2;255;0;0m{}\x1b[0m", err_msg);
             println!("[q] to quit game");
@@ -37,10 +38,7 @@ fn main() {
                 }
             } 
             err_msg = match board.check_start(&start_indx) {
-                Ok(_) => match board.eval_reach() {
-                    Ok(_) => break,
-                    Err(msg) => msg, 
-                },
+                Ok(_) => break,
                 Err(msg) => msg,
             }
         }
@@ -70,9 +68,7 @@ fn main() {
             }
             err_msg = match board.check_end(&end_indx) {
                 Ok(_) => {
-                    println!("\x1bc");
                     board.move_piece(&end_indx);
-                    board.draw();
                     break;
                 },
                 Err(msg) => msg,
