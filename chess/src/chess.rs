@@ -3,8 +3,8 @@ use std::collections::HashMap;
 pub enum State {
     Open,
     Check,
-    Stale,
-    Mate,
+    Stale(bool),
+    Mate(bool),
 }
 
 const RESET_COLOR: &str = "\x1b[0m";
@@ -172,6 +172,7 @@ fn check_king_moves(
     piece: &'static Piece,
     dir: &mut [i8; 2],
     white_turn: &bool,
+    king_state: &State,
 ) -> (Vec<i8>, Vec<i8>){
     let mut movement: Vec<i8> = Vec::with_capacity(8);
     let mut capture: Vec<i8> = Vec::with_capacity(8);
@@ -207,6 +208,42 @@ fn check_king_moves(
             }
         }
         *dir = [-dir[1], dir[0]]; 
+    }
+    match king_state {
+        State::Open if king.1 => for s in 0..=1 {
+            let val: i8 = 1 - 2 * s;
+            for n in 1..=3 + s {
+                *j = *square % 8 + val * n;
+                *indx = *square + val * n;
+                if n < 3 {
+                    let result:
+                        (Vec<i8>, i8) = detect_checks(
+                        indx, current,
+                        oposite, white_turn,
+                    );
+                    if result.1 > 0 {
+                        break;
+                    }
+                }
+                let b_var: bool = ((*j < 7) & (s == 0))
+                    | ((*j > 0) & (s == 1));
+                if (current.contains_key(indx)
+                    || oposite.contains_key(indx))
+                    && b_var
+                {
+                    break;
+                } else if current.contains_key(indx)
+                    && *j == 7 * (1 - s)
+                {
+                    if current[indx].0.id == 2
+                        && current[indx].1
+                    {
+                        movement.push(*square + val * 2);
+                    }
+                }
+            } 
+        },
+        _ => (),
     }
     current.insert(*square, king);
     (movement, capture)
@@ -387,10 +424,13 @@ impl Board {
         let mut indx: i8;
         let mut piece_color: &'static str;
         let mut piece_graph: char;
-        println!("\n");
+        let mut s: &str = "\x1b[38;2;255;0;255mTer\
+            \x1b[38;2;255;255;0mmi\
+            \x1b[38;2;0;255;255mnal\x1b[0m Chess";
+        println!("{:>9}{}\n", ' ', s);
         for n in 0..64i8 {            
             if(n % 8) == 0 {
-                print!("{:^2}", 8 - n / 8);
+                print!("{:6}{:^2}", ' ', 8 - n / 8);
             }
 
             indx = (n + n / 8) % 2 + if self.square == n {
@@ -422,20 +462,30 @@ impl Board {
                 print!("\n");
             } 
         }
-        print!("  ");
+        print!("{:^8}", ' ');
         for n in 'a'..='h' {
             print!("{:^2}", n);
         }
-        print!("\n");
+        match self.king_state {
+            State::Mate(_) | State::Stale(_) => println!("\n"),
+            _ => {
+                s = if self.white_turn {
+                    "\x1b[38;2;153;255;204mWhite\x1b[0m"
+                } else {
+                    "\x1b[38;2;127;0;255mBlack\x1b[0m"
+                };
+                println!("\n\n{}'s turn",s);
+            },
+        }        
     }
 
     pub fn check_start(
         &mut self, indx: &i8
     ) -> Result<(), &'static str> {        
         let err_msg_0:
-            &'static str = "you don't have a piece in that square";
+            &'static str = "You don't have a piece in that square";
         let err_msg_1:
-            &'static str = "incorrect piece, you are in check";
+            &'static str = "Incorrect piece, you are in check";
         let err_msg_2: 
             &'static str = "The piece has no valid moves"; 
         if self.valid.contains_key(indx) {
@@ -522,8 +572,30 @@ impl Board {
         }
         if piece.0.id == 0 {
             if self.white_turn {
+                if (self.king_indx[0] - *indx).abs() == 2 {
+                    let val: [i8; 2] = if self.king_indx[0] < *indx {
+                        [*indx + 1, *indx - 1]
+                    } else {
+                        [*indx - 2, *indx + 1]
+                    };
+                    let rook: (
+                        &Piece,
+                        bool,
+                    ) = current.remove(&val[0]).unwrap();
+                    current.insert(val[1], rook);                    
+                }
                 self.king_indx[0] = *indx;
             } else {
+                if (self.king_indx[1] - *indx).abs() == 2 {
+                    let val: [i8; 2] = if self.king_indx[1] < *indx {
+                        [*indx + 1, *indx - 1]
+                    } else {
+                        [*indx - 2, *indx + 1]
+                    };
+                    let rook: (&Piece,bool) =
+                        current.remove(&val[0]).unwrap();
+                    current.insert(val[1], rook);                    
+                }
                 self.king_indx[1] = *indx;
             }
         }
@@ -543,7 +615,7 @@ impl Board {
         self.capture.clear();
     }
 
-    pub fn calc_valid_moves(&mut self) {
+    pub fn calc_valid_moves(&mut self) -> State{
         let (
             current,
             oposite
@@ -585,7 +657,7 @@ impl Board {
                     (Vec<i8>, Vec<i8>) = check_king_moves(
                     &mut indx,&mut i, &mut j, k,
                     current, oposite, piece, &mut dir,
-                    &self.white_turn,
+                    &self.white_turn, &self.king_state,
                 );
                 king_count =
                     (result.0.len() + result.1.len()) as u8;
@@ -656,20 +728,29 @@ impl Board {
                 }
             }
         }
-        self.king_state = match count {
+        match count {
             0 => if king_count + movement_count == 0 {
-                State::Stale
+                self.king_state = 
+                    State::Stale(self.white_turn);
+                State::Stale(self.white_turn)
             } else {
+                self.king_state = State::Open;
                 State::Open
             },
             1 => if king_count + block_count == 0 {
-                State::Mate
+                self.king_state =
+                    State::Mate(self.white_turn);
+                State::Mate(self.white_turn)
             } else {
+                self.king_state = State::Check;
                 State::Check
             },
             _ => if king_count == 0 {
-                State::Mate
+                self.king_state =
+                    State::Mate(self.white_turn);
+                State::Mate(self.white_turn)
             } else {
+                self.king_state = State::Check;
                 State::Check
             }
         }

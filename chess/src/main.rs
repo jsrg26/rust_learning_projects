@@ -6,7 +6,7 @@ pub mod chess;
 enum State {
     Close,
     Undo,
-    Next
+    Next,
 }
 
 fn main() {
@@ -17,13 +17,53 @@ fn main() {
     let mut err_msg: &str = "";
 
     'main: loop {
-        board.calc_valid_moves();
+        match board.calc_valid_moves() {
+            chess::State::Mate(val) => {
+                print!("\x1bc");
+                err_msg = if val {
+                    "Checkmate for Black, White loses"
+                } else {
+                    "Checkmate for White, Black loses"
+                };
+                board.draw();
+                println!("\x1b[38;2;0;128;255m{}\x1b[0m", err_msg);
+                println!("\nPress any key to close");
+                buf = String::new();
+                match io::stdin().read_line(&mut buf) {
+                    Ok(_) => {
+                        print!("\x1bc");
+                        break;
+                    },
+                    Err(_) => println!("Failed to read the line")
+                }
+            },
+            chess::State::Stale(val) => {
+                print!("\x1bc");
+                err_msg = if val {
+                    "White is in Stalemate, is a tie"
+                } else {
+                    "Black is in Stalemate, is a tie"
+                };
+                board.draw();
+                println!("\x1b[38;2;255;0;0m{}\x1b[0m", err_msg);
+                println!("Press any key to close");
+                buf = String::new();
+                match io::stdin().read_line(&mut buf) {
+                    Ok(_) => {
+                        print!("\x1bc");
+                        break;
+                    },
+                    Err(_) => println!("Failed to read the line")
+                }
+            },
+            _ => (),
+        }
         loop {   
             print!("\x1bc");
             board.draw();
             println!("\x1b[38;2;255;0;0m{}\x1b[0m", err_msg);
-            println!("[q] to quit game");
-            println!("type the square of the piece you want to move:");   
+            println!("[\x1b[38;2;255;0;0mq\x1b[0m]: Quit game");
+            println!("Which piece do you want to move?:");   
             match read_index(&mut buf, &mut start_indx, false) {
                 Ok(val) => match val {
                     State::Close => {
@@ -47,8 +87,9 @@ fn main() {
             print!("\x1bc"); 
             board.draw();
             println!("\x1b[38;2;255;0;0m{}\x1b[0m", err_msg);
-            println!("[q] to quit game / [u] to undo the move");
-            println!("type the square you want to move your pice to:");
+            print!("[\x1b[38;2;255;0;0mq\x1b[0m]: Quit game /");
+            println!(" [\x1b[38;2;0;255;255mu\x1b[0m]: Unselect");
+            println!("Where do you want to move it?:");
             match read_index(&mut buf, &mut end_indx, true) {
                 Ok(val) => match val {
                     State::Close => {
