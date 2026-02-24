@@ -428,43 +428,84 @@ impl Board {
             \x1b[38;2;255;255;0mmi\
             \x1b[38;2;0;255;255mnal\x1b[0m Chess";
         println!("{:>9}{}\n", ' ', s);
-        for n in 0..64i8 {            
-            if(n % 8) == 0 {
-                print!("{:6}{:^2}", ' ', 8 - n / 8);
+        if self.white_turn{
+            for n in 0..64i8 {            
+                if(n % 8) == 0 {
+                    print!("{:6}{:^2}", ' ', 8 - n / 8);
+                }
+
+                indx = (n + n / 8) % 2 + if self.square == n {
+                    2
+                } else if self.movement.contains(&(n)) {
+                    4
+                } else if self.capture.contains(&(n)) {
+                    6
+                } else {
+                    0
+                };
+
+                (piece_color, piece_graph) = if self.white.contains_key(&n) {
+                    (PIECE_COLOR[0], self.white[&n].0.graph)
+                } else if self.black.contains_key(&n) {
+                    (PIECE_COLOR[1], self.black[&n].0.graph)
+                } else {
+                    ("", ' ')
+                };
+
+                print!(
+                    "{}{}{:^2}{}",
+                    BACKGROUND_COLOR[indx as usize],
+                    piece_color,
+                    piece_graph,
+                    RESET_COLOR,
+                );
+                if (n + 1) % 8 == 0 {
+                    print!("\n");
+                } 
             }
+            print!("{:^8}", ' ');
+            for n in 'a'..='h' {
+                print!("{:^2}", n);
+            }
+        } else {
+            for n in (0..64i8).rev() {            
+                if(n % 8) == 7 {
+                    print!("{:6}{:^2}", ' ', 8 - n / 8);
+                }
 
-            indx = (n + n / 8) % 2 + if self.square == n {
-                2
-            } else if self.movement.contains(&(n)) {
-                4
-            } else if self.capture.contains(&(n)) {
-                6
-            } else {
-                0
-            };
+                indx = (n + n / 8) % 2 + if self.square == n {
+                    2
+                } else if self.movement.contains(&(n)) {
+                    4
+                } else if self.capture.contains(&(n)) {
+                    6
+                } else {
+                    0
+                };
 
-            (piece_color, piece_graph) = if self.white.contains_key(&n) {
-                (PIECE_COLOR[0], self.white[&n].0.graph)
-            } else if self.black.contains_key(&n) {
-                (PIECE_COLOR[1], self.black[&n].0.graph)
-            } else {
-                ("", ' ')
-            };
+                (piece_color, piece_graph) = if self.white.contains_key(&n) {
+                    (PIECE_COLOR[0], self.white[&n].0.graph)
+                } else if self.black.contains_key(&n) {
+                    (PIECE_COLOR[1], self.black[&n].0.graph)
+                } else {
+                    ("", ' ')
+                };
 
-            print!(
-                "{}{}{:^2}{}",
-                BACKGROUND_COLOR[indx as usize],
-                piece_color,
-                piece_graph,
-                RESET_COLOR,
-            );
-            if (n + 1) % 8 == 0 {
-                print!("\n");
-            } 
-        }
-        print!("{:^8}", ' ');
-        for n in 'a'..='h' {
-            print!("{:^2}", n);
+                print!(
+                    "{}{}{:^2}{}",
+                    BACKGROUND_COLOR[indx as usize],
+                    piece_color,
+                    piece_graph,
+                    RESET_COLOR,
+                );
+                if n % 8 == 0 {
+                    print!("\n");
+                } 
+            }
+            print!("{:^8}", ' ');
+            for n in ('a'..='h').rev() {
+                print!("{:^2}", n);
+            }
         }
         match self.king_state {
             State::Mate(_) | State::Stale(_) => println!("\n"),
