@@ -40,12 +40,12 @@ fn main() {
             chess::State::Stale(val) => {
                 print!("\x1bc");
                 err_msg = if val {
-                    "White is in Stalemate, is a tie"
+                    "White is in Stalemate, is a Tie"
                 } else {
-                    "Black is in Stalemate, is a tie"
+                    "Black is in Stalemate, is a Tie"
                 };
                 board.draw();
-                println!("\x1b[38;2;255;0;0m{}\x1b[0m", err_msg);
+                println!("\x1b[38;2;0;128;255m{}\x1b[0m", err_msg);
                 println!("Press any key to close");
                 buf = String::new();
                 match io::stdin().read_line(&mut buf) {

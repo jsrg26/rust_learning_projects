@@ -42,6 +42,14 @@ fn sign(num: i8) -> i8 {
     }
 }
 
+fn max(v1: i8, v2: i8) -> i8 {
+    if v1 >= v2 {
+        v1
+    } else {
+        v2
+    }
+}
+
 pub fn decode_notation(s: &String) -> Result<i8, &'static str> {
     let err_msg: &'static str = "Wrong notation, try again";
     if s.trim().len() == 2 {
@@ -169,8 +177,8 @@ fn check_king_moves(
     square: &i8,
     current: &mut HashMap<i8,(&'static Piece, bool)>,
     oposite: &HashMap<i8,(&'static Piece, bool)>,
-    piece: &'static Piece,
     dir: &mut [i8; 2],
+    other_king: &i8,
     white_turn: &bool,
     king_state: &State,
 ) -> (Vec<i8>, Vec<i8>){
@@ -178,13 +186,17 @@ fn check_king_moves(
     let mut capture: Vec<i8> = Vec::with_capacity(8);
     let king:(&'static Piece, bool)
         = current.remove(&square).unwrap();
-    for r in 0..piece.n_rot {
+    let i_ops: i8 = *other_king / 8;
+    let j_ops: i8 = *other_king % 8;
+    for r in 0..8 {
         if r == 4 {
             *dir = [dir[0], dir[1] + 1];
         }
         *i = square / 8 + dir[0];
         *j = square % 8 + dir[1];
-        if (*i > -1 && *i < 8) && (*j > -1 && *j < 8) {
+        if max((*i - i_ops).abs(),(*j - j_ops).abs()) > 1
+            && (*i > -1 && *i < 8) && (*j > -1 && *j < 8)
+        {
             *indx = *j + *i * 8;
             if current.contains_key(&indx) {
                 *dir = [-dir[1], dir[0]]; 
@@ -198,9 +210,9 @@ fn check_king_moves(
                     oposite,
                     white_turn,
                 );
-                if count == 0 {                                
+                if count == 0 {                               
                     if oposite.contains_key(indx) {
-                        capture.push(*indx);
+                            capture.push(*indx);
                     } else {
                         movement.push(*indx);
                     }
@@ -253,9 +265,11 @@ fn check_pawn_moves(
     indx: &mut i8, i: &mut i8, j: &mut i8,
     square: &i8,
     current: &mut HashMap<i8,(&'static Piece, bool)>,
-    oposite: &HashMap<i8,(&'static Piece, bool)>,
+    oposite: &mut HashMap<i8,(&'static Piece, bool)>,
     dir: &mut [i8; 2],
     en_passant: &i8,
+    king_indx: &i8,
+    white_turn: &bool,
 ) -> (Vec<i8>, Vec<i8>){
     let mut movement: Vec<i8> = Vec::with_capacity(3);
     let mut capture: Vec<i8> = Vec::with_capacity(2);
@@ -263,23 +277,79 @@ fn check_pawn_moves(
     *j = *square % 8;
     *indx = *j + *i * 8;
     if !current.contains_key(indx)
-        && !oposite.contains_key(indx) {
-        movement.push(*indx);
-        if current[&square].1 
-            && !current.contains_key(&(*indx + dir[0] * 8))
-            && !oposite.contains_key(&(*indx + dir[0] * 8)) {
-            movement.push(*indx + dir[0] * 8);
+        && !oposite.contains_key(indx)
+    {
+        let pawn: (&'static Piece, bool) =
+            current.remove(square).unwrap();
+        current.insert(*indx, pawn);
+        let result: (Vec<i8>, i8) = detect_checks(
+            king_indx,
+            current,
+            oposite,
+            white_turn,
+        );
+        current.remove(indx);
+        if result.1 == 0{
+            movement.push(*indx);
         }
+        if !current.contains_key(&(*indx + dir[0] * 8))
+            && !oposite.contains_key(&(*indx + dir[0] * 8))
+            && pawn.1
+        {
+            current.insert(*indx + dir[0] * 8, pawn);
+            let result: (Vec<i8>, i8) = detect_checks(
+                king_indx,
+                current,
+                oposite,
+                white_turn,
+            );
+            current.remove(&(*indx + dir[0] * 8));
+            if result.1 == 0{
+                movement.push(*indx + dir[0] * 8);
+            }
+        }        
+        current.insert(*square, pawn);
     }
     for k in [-1, 1i8] {
         if (*j + k) > -1 && (*j + k) < 8 {
-            if oposite.contains_key(&(*indx + k)) {
-                capture.push(*indx + k);
-            }
-            if *en_passant == *indx - dir[0] * 8 + k 
+            if oposite.contains_key(&(*indx + k)) {  
+                let pawn: (&'static Piece, bool) =
+                    current.remove(square).unwrap();
+                current.insert(*indx + k, pawn);
+                let other: (&'static Piece, bool) =
+                    oposite.remove(&(*indx + k)).unwrap();
+                let result: (Vec<i8>, i8) = detect_checks(
+                    king_indx,
+                    current,
+                    oposite,
+                    white_turn,
+                );
+                current.remove(indx);
+                current.insert(*square, pawn);
+                oposite.insert(*indx + k, other);
+                if result.1 == 0{
+                    capture.push(*indx + k);
+                }
+            } else if *en_passant == *indx - dir[0] * 8 + k 
                 && !current.contains_key(&(*indx + k))
-                && !oposite.contains_key(&(*indx + k)) {
-                capture.push(*indx + k);
+            {
+                let pawn: (&'static Piece, bool) =
+                    current.remove(square).unwrap();
+                current.insert(*indx + k, pawn);
+                let other: (&'static Piece, bool) =
+                    oposite.remove(en_passant).unwrap();
+                let result: (Vec<i8>, i8) = detect_checks(
+                    king_indx,
+                    current,
+                    oposite,
+                    white_turn,
+                );                
+                current.remove(indx);
+                current.insert(*square, pawn);
+                oposite.insert(*en_passant, other);
+                if result.1 == 0{
+                    capture.push(*indx + k);
+                }
             }
         }
     }
@@ -290,9 +360,11 @@ fn check_piece_move(
     indx: &mut i8, i: &mut i8, j: &mut i8,
     square: &i8,
     current: &mut HashMap<i8,(&'static Piece, bool)>,
-    oposite: &HashMap<i8,(&'static Piece, bool)>,
+    oposite: &mut HashMap<i8,(&'static Piece, bool)>,
     piece: &'static Piece,
     dir: &mut [i8; 2],
+    king_indx: &i8,
+    white_turn: &bool,
 ) -> (Vec<i8>, Vec<i8>){
     let mut movement: Vec<i8> = Vec::with_capacity(27);
     let mut capture: Vec<i8> = Vec::with_capacity(8);
@@ -312,10 +384,41 @@ fn check_piece_move(
                 if current.contains_key(indx) {
                     break;
                 } else if oposite.contains_key(indx) {
-                    capture.push(*indx);
+                    let curr_piece: (&Piece, bool) =
+                        current.remove(square).unwrap();
+                    current.insert(*indx, curr_piece);
+                    let other: (&Piece, bool) = 
+                        oposite.remove(indx).unwrap();
+                    let result: (Vec<i8>, i8) = detect_checks(
+                        king_indx,
+                        current,
+                        oposite,
+                        white_turn,
+                    );                    
+                    current.remove(indx);
+                    current.insert(*square, curr_piece);
+                    oposite.insert(*indx, other);
+                    if result.1 == 0{
+                        capture.push(*indx);
+                    }
                     break;
                 } else {
-                    movement.push(*indx);
+                    let curr_piece: (&Piece, bool) =
+                        current.remove(square).unwrap();
+                    current.insert(*indx, curr_piece);
+                    let result: (Vec<i8>, i8) = detect_checks(
+                        king_indx,
+                        current,
+                        oposite,
+                        white_turn,
+                    );                    
+                    current.remove(indx);
+                    current.insert(*square, curr_piece);
+                    if result.1 == 0{
+                        movement.push(*indx);
+                    } else {
+                        break;
+                    }
                 }
             } else {
                 break;
@@ -659,14 +762,24 @@ impl Board {
     pub fn calc_valid_moves(&mut self) -> State{
         let (
             current,
-            oposite
+            oposite,
+            king_indx,
+            other_king,
         ): (
             &mut HashMap<i8, (&'static Piece, bool)>,
-            &HashMap<i8, (&'static Piece, bool)>,
+            &mut HashMap<i8, (&'static Piece, bool)>,
+            &i8,
+            &i8,
         ) = if self.white_turn {
-            (&mut self.white, &self.black)
+            (
+                &mut self.white, &mut self.black,
+                &self.king_indx[0], &self.king_indx[1]
+            )
         } else {
-            (&mut self.black, &self.white)
+            (
+                &mut self.black, &mut self.white,
+                &self.king_indx[1], &self.king_indx[0]
+            )
         };
         
         let (
@@ -697,7 +810,7 @@ impl Board {
                     let result:
                     (Vec<i8>, Vec<i8>) = check_king_moves(
                     &mut indx,&mut i, &mut j, k,
-                    current, oposite, piece, &mut dir,
+                    current, oposite, &mut dir, other_king,
                     &self.white_turn, &self.king_state,
                 );
                 king_count =
@@ -711,7 +824,8 @@ impl Board {
                     (Vec<i8>, Vec<i8>) = check_pawn_moves(
                     &mut indx, &mut i, &mut j, k,
                     current, oposite, &mut dir,
-                    &self.en_passant,
+                    &self.en_passant, king_indx,
+                    &self.white_turn
                 );
                 movement_count += 
                     (result.0.len() + result.1.len()) as u8;
@@ -741,7 +855,8 @@ impl Board {
                 let result:
                     (Vec<i8>, Vec<i8>) = check_piece_move(
                     &mut indx, &mut i, &mut j, k,
-                    current, oposite, piece, &mut dir
+                    current, oposite, piece, &mut dir,
+                    king_indx, &self.white_turn,
                 );
                 movement_count +=
                     (result.0.len() + result.1.len()) as u8;
